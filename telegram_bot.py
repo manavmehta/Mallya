@@ -1,3 +1,7 @@
+'''
+This file is a no-op. It only refers to as how modular the code of our bot should be.
+'''
+
 import requests
 
 from config import TELEGRAM_SEND_MESSAGE_URL
