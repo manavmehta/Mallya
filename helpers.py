@@ -1,6 +1,10 @@
 import requests as requests
 from config import TOKEN, BASE_TELEGRAM_URL
 from commands import commands
+import gspread
+import numpy as np
+import tensorflow as tf
+import tensorflow_hub as hub
 
 def getChatID(update):
     '''
@@ -103,3 +107,12 @@ def parseIncomingMessage(update):
         replyToCommand(getChatID(update), command, first_name)
 
     return
+
+def find_answer(questions, features, answers):       # check database questions for similarity and return suitable answer.
+    corr = np.inner(features, features)
+    
+    if max(corr[0][1:]) < 0.3:
+        return "This question hasn't yet been answered."
+    else:
+        idx = corr[0][1:].argmax()
+        return questions[1:][idx]                    # change this to answers[idx] once answers have been uploaded to sheets.
