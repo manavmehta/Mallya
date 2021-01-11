@@ -84,7 +84,7 @@ def parseIncomingMessage(update):
     print(type(incoming_message_command))
     command, incoming_message = bifurcate(incoming_message_command)
     print('command = ', command, '\nincoming message = ', incoming_message)
-    if (command=='invalid'):
+    if (command=='invalid' or not(command in commands.keys())):
         send_message(getChatID(update), 'Please use a valid command or type /help to know the commands I know. All valid commands start with a slash /. Cheers 🍻')
         return
     elif (command=='q'):
