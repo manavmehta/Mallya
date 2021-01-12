@@ -1,3 +1,5 @@
+import sys
+import signal
 import requests as requests
 from config import TOKEN, BASE_TELEGRAM_URL
 from commands import commands
@@ -220,7 +222,6 @@ def find_answer(features):                  # check database questions for simil
     
     return answers_obj_list
 
-
 @tl.job(interval=timedelta(seconds=600))            # This decorator enables this function to execute every 10 Minutes
 def updateDB():
 
@@ -283,6 +284,12 @@ def updateDB():
     print('\nDatabase Update Completed Successfully !!\n')
 
 
+def signal_handler(sig, frame):
+    global tl
+    tl.stop()
+    sys.exit(0)
+
+
 print ('\nLoading NLP Model...\n')
 module_url = "https://tfhub.dev/google/universal-sentence-encoder/4" #@param ["https://tfhub.dev/google/universal-sentence-encoder/4", "https://tfhub.dev/google/universal-sentence-encoder-large/5"]
 model = hub.load(module_url)
@@ -299,3 +306,7 @@ questions_obj_list = [obj for obj in collection_questions.find()]
 questions_text_list = [obj['text'] for obj in questions_obj_list]
 
 userid_answers_dict = {}                    # this dict stores an list of answers specfic to one user.
+
+tl.start()
+
+signal.signal(signal.SIGINT, signal_handler)
