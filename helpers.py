@@ -222,7 +222,7 @@ def find_answer(features):                  # check database questions for simil
     
     return answers_obj_list
 
-@tl.job(interval=timedelta(seconds=600))            # This decorator enables this function to execute every 10 Minutes
+@tl.job(interval=timedelta(seconds=18000))            # This decorator enables this function to execute every 5 hours
 def updateDB():
 
     '''
