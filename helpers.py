@@ -78,8 +78,11 @@ def bifurcate(incoming_message_command):
             i+=1
         if(i<len(incoming_message_command)):
             incoming_message = incoming_message_command[i+1:]
-
-    return command, incoming_message
+    
+    if command in {'u', 'd', 'n', 'q'} or command in commands:
+        return command, incoming_message
+    else:
+        return 'invalid', None
 
 
 def replyToCommand(chatID, command, first_name):
