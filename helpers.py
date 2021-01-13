@@ -78,8 +78,11 @@ def bifurcate(incoming_message_command):
             i+=1
         if(i<len(incoming_message_command)):
             incoming_message = incoming_message_command[i+1:]
-
-    return command, incoming_message
+    
+    if command in {'u', 'd', 'n', 'q'} or command in commands:
+        return command, incoming_message
+    else:
+        return 'invalid', None
 
 
 def replyToCommand(chatID, command, first_name):
@@ -222,7 +225,7 @@ def find_answer(features):                  # check database questions for simil
     
     return answers_obj_list
 
-@tl.job(interval=timedelta(seconds=600))            # This decorator enables this function to execute every 10 Minutes
+@tl.job(interval=timedelta(seconds=18000))            # This decorator enables this function to execute every 5 hours
 def updateDB():
 
     '''
