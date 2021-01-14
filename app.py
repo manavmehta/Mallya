@@ -21,25 +21,26 @@ def index():
     # Keep Listening to incoming requests
     while True:
         # The following conditional ensures fetching of latest 50 updates
-        update = None
+        updates_list = None
         if last_update_id==None:
-            update = _.getLastUpdate(BASE_TELEGRAM_URL)
+            updates_list = _.getLastUpdate(BASE_TELEGRAM_URL)
         else:
-            update = _.getLastUpdate(BASE_TELEGRAM_URL, last_update_id-50)
+            updates_list = _.getLastUpdate(BASE_TELEGRAM_URL, last_update_id-50)
 
-        last_update_id=update['update_id']
-        
-        if update['update_id'] not in updateid_dict.keys():
-            updateid_dict[update['update_id']] = time.time()
-            print(update,'\n')
-            try:
-                new_thread = threading.Thread(target = _.parseIncomingMessage, args=(update,))
-                new_thread.start()
-            except:
-                print("Unable to create a thread")
+        for update in updates_list:
 
-            if len(updateid_dict.keys()) > 50:
-                updateid_dict.pop(list(updateid_dict.keys())[0])
+            last_update_id=update['update_id']
+            
+            if update['update_id'] not in updateid_dict.keys():
+                updateid_dict[update['update_id']] = time.time()
+                try:
+                    new_thread = threading.Thread(target = _.parseIncomingMessage, args=(update,))
+                    new_thread.start()
+                except:
+                    print("Unable to create a thread")
+
+                if len(updateid_dict.keys()) > 50:
+                    updateid_dict.pop(list(updateid_dict.keys())[0])
 
 
 if __name__ == '__main__':
