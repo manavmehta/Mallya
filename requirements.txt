@@ -29,3 +29,4 @@ tensorflow
 tensorflow_hub
 timeloop
 pymongo
+urllib
