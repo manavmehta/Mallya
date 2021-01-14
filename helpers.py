@@ -53,7 +53,7 @@ def getLastUpdate(req, offset=None):
         updates_url+='?offset={}'.format(offset)
     response = requests.get(updates_url).json()
     result = response['result']
-    return result[-1]  # get last record message update
+    return result[-5:]  # get last record message update
 
 
 def send_message(chat_id, message_text):
