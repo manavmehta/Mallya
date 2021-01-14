@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import sys
 import signal
 import requests as requests
@@ -42,11 +44,14 @@ def getMessageText(update):
 
 
 # create function that get getLastUpdate
-def getLastUpdate(req):
+def getLastUpdate(req, offset=None):
     '''
         Returns the latest update from the getUpdates bot API call.
     '''
-    response = requests.get(req + 'getUpdates').json()
+    updates_url=req + 'getUpdates/'
+    if(offset != None):
+        updates_url+='?offset={}'.format(offset)
+    response = requests.get(updates_url).json()
     result = response['result']
     return result[-1]  # get last record message update
 
@@ -134,7 +139,7 @@ def giveOneAnswer(chatID, answers_obj_list):
     return answers_obj_list
 
 
-def answerQuery(incoming_message:str, update):
+def answerQuery(incoming_message, update):
 
     global model, questions_text_list, userid_answers_dict
 
@@ -263,7 +268,7 @@ def updateDB():
             ans_text_list = [obj['text'] for obj in ans_obj_list]
 
             for a in ans.split('&&'):
-                if not a in ans_text_list:
+                if not a in ans_text_list and not a.isspace() and a != '':
                     temp_id = collection_answers.insert_one({'text': a, 'upvotes': 0}).inserted_id
                     ans_id_list.append(temp_id)
                     ans_text_list.append(a)
