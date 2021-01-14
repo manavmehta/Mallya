@@ -14,11 +14,21 @@ def index():
 
     global updateid_dict
 
-    updateCount = _.getLastUpdate(BASE_TELEGRAM_URL)['update_id']
+    # updateCount = _.getLastUpdate(BASE_TELEGRAM_URL)['update_id'] # variable from stale algo. Should be deleted before release 2.
     
+    last_update_id=None
+
     # Keep Listening to incoming requests
     while True:
-        update = _.getLastUpdate(BASE_TELEGRAM_URL)
+        # The following conditional ensures fetching of latest 50 updates
+        update = None
+        if last_update_id==None:
+            update = _.getLastUpdate(BASE_TELEGRAM_URL)
+        else:
+            update = _.getLastUpdate(BASE_TELEGRAM_URL, last_update_id-50)
+
+        last_update_id=update['update_id']
+        
         if update['update_id'] not in updateid_dict.keys():
             updateid_dict[update['update_id']] = time.time()
             print(update,'\n')
