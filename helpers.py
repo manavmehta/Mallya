@@ -48,9 +48,9 @@ def getLastUpdate(req, offset=None):
     '''
         Returns the latest update from the getUpdates bot API call.
     '''
-    updates_url=req + 'getUpdates/'
+    updates_url = req + 'getUpdates'
     if(offset != None):
-        updates_url+='?offset={}'.format(offset)
+        updates_url += '?offset={}'.format(offset)
     response = requests.get(updates_url).json()
     result = response['result']
     return result[-5:]  # get last record message update
