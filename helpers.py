@@ -10,6 +10,7 @@ import tensorflow_hub as hub
 from pymongo import MongoClient
 from timeloop import Timeloop
 from datetime import timedelta
+import urllib.parse as url
 
 tl = Timeloop()
 
@@ -143,7 +144,9 @@ def answerQuery(incoming_message:str, update):
     # Above code updates answers_obj_list through the NLP model.
     
     if len(answers_obj_list) == 0:
-        send_message(getChatID(update), "This Question hasn't yet been answered.")
+        message="This Question hasn't yet been answered. Try a Google search: "
+        search_url='https://www.google.com/search?q={}'.format(url.quote(incoming_message))
+        send_message(getChatID(update), message+search_url)
     else:
         answers_obj_list = giveOneAnswer(getChatID(update), answers_obj_list)
     
