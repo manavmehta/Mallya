@@ -310,7 +310,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-small_talk = pd.read_csv('./smalltalk.csv', sep=',')
+small_talk = pd.read_csv('/home/cauldronpumpkin/mallya/smalltalk.csv', sep=',')
 
 small_talk_questions = list(small_talk['Question'])
 small_talk_answers = list(small_talk['Answers'])
