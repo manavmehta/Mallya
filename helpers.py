@@ -13,6 +13,7 @@ from pymongo import MongoClient
 from timeloop import Timeloop
 from datetime import timedelta
 import urllib.parse as url
+import pandas as pd
 
 tl = Timeloop()
 
@@ -48,7 +49,7 @@ def getLastUpdate(req, offset=None):
     '''
         Returns the latest update from the getUpdates bot API call.
     '''
-    updates_url=req + 'getUpdates/'
+    updates_url=req + 'getUpdates'
     if(offset != None):
         updates_url+='?offset={}'.format(offset)
     response = requests.get(updates_url).json()
@@ -56,7 +57,7 @@ def getLastUpdate(req, offset=None):
     return result[-5:]  # get last record message update
 
 
-def send_message(chat_id, message_text):
+def sendMessage(chat_id, message_text):
     '''
         Sends the <message_text> to the corresponding <chat_id>
     '''
@@ -75,7 +76,7 @@ def bifurcate(incoming_message_command):
     '''
     command, incoming_message = None, None
     if (incoming_message_command[0]!='/'): # Any message that does not start with a / is not a valid command
-        return 'invalid', None
+        return 'general', incoming_message_command             # decision tree
     else:
         i=1
         command = ''
@@ -96,7 +97,7 @@ def replyToCommand(chatID, command, first_name):
         This is called when the message is any valid command except for a query.
         ie. For all commands available in commands.py
     '''
-    send_message(chatID, commands[command].format(first_name))
+    sendMessage(chatID, commands[command].format(first_name))
     return
 
 
@@ -118,7 +119,7 @@ def voteOnAnswer(chatID, command, update):                                  # up
     
     collection_answers.update_one(myquery, newvalues)
 
-    send_message(chatID, "Your Vote was registered !")
+    sendMessage(chatID, "Your Vote was registered !")
 
 
 def giveOneAnswer(chatID, answers_obj_list):
@@ -132,9 +133,9 @@ def giveOneAnswer(chatID, answers_obj_list):
     # Above code swap first and last element of the array to cycle through the answers.
 
     ret_str = answer_obj['text'] + '\n\n' + '___________________________________\n'
-    ret_str += '\nUpvotes: {}'.format(answer_obj['upvotes']) + '\n\n' + 'type /u or /d for upvoting or downvoting this answer or /n for next answer.'
+    ret_str += '\nUpvotes: {}'.format(answer_obj['upvotes']) + '\n\n' + 'Type /u or /d for upvoting or downvoting this answer or /n for next answer.'
 
-    send_message(chatID, ret_str)
+    sendMessage(chatID, ret_str)
 
     return answers_obj_list
 
@@ -144,14 +145,14 @@ def answerQuery(incoming_message, update):
     global model, questions_text_list, userid_answers_dict
 
     msg_embeddings = model([incoming_message] + questions_text_list)
-    answers_obj_list = find_answer(msg_embeddings)
+    answers_obj_list = findAnswer(msg_embeddings)
 
     # Above code updates answers_obj_list through the NLP model.
     
     if len(answers_obj_list) == 0:
         message="This Question hasn't yet been answered. Try a Google search: "
         search_url='https://www.google.com/search?q={}'.format(url.quote(incoming_message))
-        send_message(getChatID(update), message+search_url)
+        sendMessage(getChatID(update), message+search_url)
     else:
         answers_obj_list = giveOneAnswer(getChatID(update), answers_obj_list)
     
@@ -176,18 +177,12 @@ def parseIncomingMessage(update):
     print('command = ', command, '\nincoming message = ', incoming_message)
     
     if (command=='invalid'):
-        send_message(getChatID(update), 'Please use a valid command or type /help to know the commands I know. All valid commands start with a slash /. Cheers 🍻')
+        sendMessage(getChatID(update), 'Please use a valid command or type /help to know the commands I know. All valid commands start with a slash /. Cheers 🍻')
         return
     
     elif (command == 'q'):
         print(incoming_message)
         answerQuery(incoming_message, update)
-
-        # All the code to answering the query goes here.
-        # if incoming_message in commands:
-        #     send_message(getChatID(update), answerQuery(commands, incoming_message, update))
-        # else:
-        #     send_message(getChatID(update), 'Hindi bol bsdk')
     
     elif (command == 'n' or command == 'u' or command == 'd'):
         
@@ -199,14 +194,17 @@ def parseIncomingMessage(update):
         '''
 
         if not(getUserID(update) in userid_answers_dict):
-            send_message(getChatID(update), 'Please use a valid command or type /help to know the commands I know. All valid commands start with a slash /. Cheers 🍻')
+            sendMessage(getChatID(update), 'Please use a valid command or type /help to know the commands I know. All valid commands start with a slash /. Cheers 🍻')
         elif command == 'n' and len(userid_answers_dict[getUserID(update)]) > 1:
             userid_answers_dict[getUserID(update)] = giveOneAnswer(getChatID(update), userid_answers_dict[getUserID(update)])
         elif command == 'u' or command == 'd':
             voteOnAnswer(getChatID(update), command, update)
         else:
-            send_message(getChatID(update), 'No more answers available for this question.')
+            sendMessage(getChatID(update), 'No more answers available for this question.')
             
+    elif command == 'general':
+        sendMessage(getChatID(update), findGeneralAnswer(incoming_message))
+
     else:
         first_name = update['message']['from']['first_name']
         if ('message' in update.keys()):
@@ -218,7 +216,18 @@ def parseIncomingMessage(update):
     return
 
 
-def find_answer(features):                  # check database questions for similarity and return suitable answer.
+def findGeneralAnswer(ques):
+
+    global small_talk_answers, small_talk_questions, model
+
+    features = model([ques] + small_talk_questions)
+
+    corr = np.inner(features, features)
+
+    return small_talk_answers[corr[0][1:].argmax()]
+    
+
+def findAnswer(features):                  # check database questions for similarity and return suitable answer.
     
     global questions_obj_list, collection_answers
 
@@ -233,7 +242,7 @@ def find_answer(features):                  # check database questions for simil
     
     return answers_obj_list
 
-@tl.job(interval=timedelta(seconds=18000))            # This decorator enables this function to execute every 5 hours
+@tl.job(interval=timedelta(seconds=3600))            # This decorator enables this function to execute every 5 hours
 def updateDB():
 
     '''
@@ -301,12 +310,17 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
+small_talk = pd.read_csv('./smalltalk.csv', sep=',')
+
+small_talk_questions = list(small_talk['Question'])
+small_talk_answers = list(small_talk['Answers'])
+
+client = MongoClient('localhost', 27017)
+
 print ('\nLoading NLP Model...\n')
 module_url = "https://tfhub.dev/google/universal-sentence-encoder/4" #@param ["https://tfhub.dev/google/universal-sentence-encoder/4", "https://tfhub.dev/google/universal-sentence-encoder-large/5"]
 model = hub.load(module_url)
 print ('\nNLP model loaded successfully !\n')
-
-client = MongoClient('localhost', 27017)
 
 db = client['mallya']
 
