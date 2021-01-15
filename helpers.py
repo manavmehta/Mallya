@@ -108,15 +108,27 @@ def voteOnAnswer(chatID, command, update):                                  # up
     answer_obj = userid_answers_dict[getUserID(update)][-1]
     
     myquery = { '_id': answer_obj['_id'] }
-    newvalues = { '$set': { 'upvotes': answer_obj['upvotes'] } }
 
-    if command == 'u':
-        newvalues['$set']['upvotes'] += 1
-        userid_answers_dict[getUserID(update)][-1]['upvotes'] += 1
-    else:
-        newvalues['$set']['upvotes'] -= 1
-        userid_answers_dict[getUserID(update)][-1]['upvotes'] -= 1
+    state = 0
+
+    if getUserID(update) in answer_obj['upvotes']:
+        state = 1
+        answer_obj['score'] -= 1
+        answer_obj['upvotes'].remove(getUserID(update))
+    elif getUserID(update) in answer_obj['downvotes']:
+        state = -1
+        answer_obj['score'] += 1
+        answer_obj['downvotes'].remove(getUserID(update))
+
+    if command == 'u' and state != 1:
+        answer_obj['score'] += 1
+        answer_obj['upvotes'].append(getUserID(update))
+    elif command == 'd' and state != -1:
+        answer_obj['score'] -= 1
+        answer_obj['downvotes'].append(getUserID(update))
     
+    userid_answers_dict[getUserID(update)][-1] = answer_obj
+    newvalues = { '$set': { 'upvotes': answer_obj['upvotes'], 'downvotes': answer_obj['downvotes'], 'score': answer_obj['score'] } }
     collection_answers.update_one(myquery, newvalues)
 
     sendMessage(chatID, "Your Vote was registered !")
@@ -133,7 +145,7 @@ def giveOneAnswer(chatID, answers_obj_list):
     # Above code swap first and last element of the array to cycle through the answers.
 
     ret_str = answer_obj['text'] + '\n\n' + '___________________________________\n'
-    ret_str += '\nUpvotes: {}'.format(answer_obj['upvotes']) + '\n\n' + 'Type /u or /d for upvoting or downvoting this answer or /n for next answer.'
+    ret_str += '\nUpvotes: {}'.format(answer_obj['score']) + '\n\n' + 'Type /u or /d for upvoting or downvoting this answer or /n for next answer.'
 
     sendMessage(chatID, ret_str)
 
@@ -311,6 +323,7 @@ def signal_handler(sig, frame):
 
 
 small_talk = pd.read_csv('/home/cauldronpumpkin/mallya/smalltalk.csv', sep=',')
+# small_talk = pd.read_csv('./smalltalk.csv', sep=',')
 
 small_talk_questions = list(small_talk['Question'])
 small_talk_answers = list(small_talk['Answers'])

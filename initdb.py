@@ -30,7 +30,7 @@ for obj in qna_dict:
     ans_list_id = []
     
     if ans != '' and (not ans.isspace()):
-        ans_list_json = [{'text': a, 'upvotes': 0} for a in ans.split('&&')]
+        ans_list_json = [{'text': a, 'upvotes': [], 'downvotes': [], 'score': 0} for a in ans.split('&&')]
         ans_list_id = collection_answers.insert_many(ans_list_json).inserted_ids
 
     ques_json = {'text': ques, 'answers': ans_list_id}
