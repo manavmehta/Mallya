@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import gspread
 from pymongo import MongoClient
 client = MongoClient()
@@ -33,5 +35,3 @@ for obj in qna_dict:
 
     ques_json = {'text': ques, 'answers': ans_list_id}
     ques_id = collection_questions.insert_one(ques_json)
-
-    print(ques, ans)
