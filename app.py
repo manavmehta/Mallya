@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import random
 from config import TOKEN, BASE_TELEGRAM_URL
 import helpers as _
