@@ -2,6 +2,7 @@
 
 import sys
 import signal
+import csv
 import requests as requests
 from config import TOKEN, BASE_TELEGRAM_URL
 from commands import commands
@@ -14,6 +15,7 @@ from timeloop import Timeloop
 from datetime import timedelta
 import urllib.parse as url
 import pandas as pd
+import random
 
 tl = Timeloop()
 
@@ -236,7 +238,9 @@ def findGeneralAnswer(ques):
 
     corr = np.inner(features, features)
 
-    return small_talk_answers[corr[0][1:].argmax()]
+    temp_lis = small_talk_answers[corr[0][1:].argmax()].split('&&')
+
+    return random.choice(temp_lis)
     
 
 def findAnswer(features):                  # check database questions for similarity and return suitable answer.
@@ -290,7 +294,7 @@ def updateDB():
 
             for a in ans.split('&&'):
                 if not a in ans_text_list and not a.isspace() and a != '':
-                    temp_id = collection_answers.insert_one({'text': a, 'upvotes': 0}).inserted_id
+                    temp_id = collection_answers.insert_one({'text': a, 'upvotes': [], 'downvotes': [], 'score': 0}).inserted_id
                     ans_id_list.append(temp_id)
                     ans_text_list.append(a)
 
@@ -303,7 +307,7 @@ def updateDB():
             ans_id_list = []
         
             if ans != '' and (not ans.isspace()):
-                ans_list_json = [{'text': a, 'upvotes': 0} for a in ans.split('&&')]
+                ans_list_json = [{'text': a, 'upvotes': [], 'downvotes': [], 'score': 0} for a in ans.split('&&')]
                 ans_list_id = collection_answers.insert_many(ans_list_json).inserted_ids
 
             ques_json = {'text': ques, 'answers': ans_id_list}
@@ -314,6 +318,42 @@ def updateDB():
     questions_text_list = [obj['text'] for obj in questions_obj_list]
     
     print('\nDatabase Update Completed Successfully !!\n')
+
+
+@tl.job(interval=timedelta(seconds=3600))            # This decorator enables this function to execute every 5 hours
+def updateCSV():
+
+    '''
+        Performs the timely database update
+        Updates are fetched from Gsheets API
+        This runs on a seperate thread.
+    '''
+
+    global small_talk_answers, small_talk_questions
+
+    gc = gspread.service_account()
+
+    print('\nCSV update in progress...\n')
+    sht2 = gc.open_by_url('https://docs.google.com/spreadsheets/d/1GW_1AJXxMo50xp92BQWuN26DhTLWWxzUMIN_YMvnojc/edit#gid=0')
+    worksht2 = sht2.get_worksheet(0)
+    small_dict = worksht2.get_all_records()
+
+    with open('/home/cauldronpumpkin/mallya/smalltalk.csv', mode='w', encoding='utf-8-sig', newline='') as smalltalk:
+        writer = csv.writer(smalltalk, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(['Question', 'Answers'])
+        for obj in small_dict:
+
+            ques = obj['Question']
+            ans = obj['Answers']
+
+            writer.writerow([ques, ans])
+    
+    small_talk = pd.read_csv('/home/cauldronpumpkin/mallya/smalltalk.csv', sep=',')
+
+    small_talk_questions = list(small_talk['Question'])
+    small_talk_answers = list(small_talk['Answers'])
+    
+    print('\nCSV Update Completed Successfully !!\n')
 
 
 def signal_handler(sig, frame):
