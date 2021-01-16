@@ -2,6 +2,7 @@
 
 import sys
 import signal
+import random
 import csv
 import requests as requests
 from config import TOKEN, BASE_TELEGRAM_URL
@@ -15,7 +16,6 @@ from timeloop import Timeloop
 from datetime import timedelta
 import urllib.parse as url
 import pandas as pd
-import random
 
 tl = Timeloop()
 
@@ -23,14 +23,14 @@ def getChatID(update):
     '''
         Returns the chatID from the update.
     '''
-    return update['message']['chat']['id']
+    return update.message.chat.id
 
 
 def getUserID(update):
     '''
         Returns the userID from the update.
     '''
-    return update['message']['from']['id']
+    return update.message.from_user.id
 
 
 def getMessageText(update):
@@ -40,10 +40,10 @@ def getMessageText(update):
         message is just a simple message sent by the user.
         edited_message is when the previous message was edited.
     '''
-    if ('message' in update.keys()):
-        return update['message']['text']
+    if (update.message):
+        return update.message.text
     else:
-        return update['edited_message']['text']
+        return update.edited_message.text
 
 
 # create function that get getLastUpdate
@@ -220,11 +220,11 @@ def parseIncomingMessage(update):
         sendMessage(getChatID(update), findGeneralAnswer(incoming_message))
 
     else:
-        first_name = update['message']['from']['first_name']
-        if ('message' in update.keys()):
-            first_name = update['message']['from']['first_name']
+        first_name = update.message.from_user.first_name
+        if (update.message):
+            first_name = update.message.from_user.first_name
         else:
-            first_name = update['edited_message']['text']['from']['first_name']
+            first_name = update.edited_message.text.from_user.first_name
         replyToCommand(getChatID(update), command, first_name)
 
     return
@@ -237,10 +237,11 @@ def findGeneralAnswer(ques):
     features = model([ques] + small_talk_questions)
 
     corr = np.inner(features, features)
+    
+    if max(corr[0][1:]) < 0.4:
+        return "I didn't understand that :("
 
-    temp_lis = small_talk_answers[corr[0][1:].argmax()].split('&&')
-
-    return random.choice(temp_lis)
+    return random.choice(small_talk_answers[corr[0][1:].argmax()].split('&&'))
     
 
 def findAnswer(features):                  # check database questions for similarity and return suitable answer.
@@ -258,7 +259,7 @@ def findAnswer(features):                  # check database questions for simila
     
     return answers_obj_list
 
-@tl.job(interval=timedelta(seconds=3600))            # This decorator enables this function to execute every 5 hours
+@tl.job(interval=timedelta(seconds=1800))            # This decorator enables this function to execute every 5 hours
 def updateDB():
 
     '''
@@ -320,7 +321,7 @@ def updateDB():
     print('\nDatabase Update Completed Successfully !!\n')
 
 
-@tl.job(interval=timedelta(seconds=3600))            # This decorator enables this function to execute every 5 hours
+@tl.job(interval=timedelta(seconds=1800))            # This decorator enables this function to execute every 5 hours
 def updateCSV():
 
     '''
@@ -340,7 +341,7 @@ def updateCSV():
 
     with open('/home/cauldronpumpkin/mallya/smalltalk.csv', mode='w', encoding='utf-8-sig', newline='') as smalltalk:
         writer = csv.writer(smalltalk, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(['Question', 'Answers'])
+        
         for obj in small_dict:
 
             ques = obj['Question']
@@ -349,6 +350,8 @@ def updateCSV():
             writer.writerow([ques, ans])
     
     small_talk = pd.read_csv('/home/cauldronpumpkin/mallya/smalltalk.csv', sep=',')
+    # small_talk = pd.read_csv('./smalltalk.csv', sep=',')
+
 
     small_talk_questions = list(small_talk['Question'])
     small_talk_answers = list(small_talk['Answers'])
