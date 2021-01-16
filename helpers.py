@@ -15,6 +15,7 @@ from timeloop import Timeloop
 from datetime import timedelta
 import urllib.parse as url
 import pandas as pd
+import random
 
 tl = Timeloop()
 
@@ -237,7 +238,9 @@ def findGeneralAnswer(ques):
 
     corr = np.inner(features, features)
 
-    return small_talk_answers[corr[0][1:].argmax()]
+    temp_lis = small_talk_answers[corr[0][1:].argmax()].split('&&')
+
+    return random.choice(temp_lis)
     
 
 def findAnswer(features):                  # check database questions for similarity and return suitable answer.
@@ -337,7 +340,7 @@ def updateCSV():
 
     with open('/home/cauldronpumpkin/mallya/smalltalk.csv', mode='w', encoding='utf-8-sig', newline='') as smalltalk:
         writer = csv.writer(smalltalk, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        
+        writer.writerow(['Question', 'Answers'])
         for obj in small_dict:
 
             ques = obj['Question']
