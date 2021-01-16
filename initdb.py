@@ -44,7 +44,7 @@ for obj in qna_dict:
 
 with open('/home/cauldronpumpkin/mallya/smalltalk.csv', mode='w', encoding='utf-8-sig', newline='') as smalltalk:
     writer = csv.writer(smalltalk, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    
+    writer.writerow(['Question', 'Answers']) 
     for obj in small_dict:
 
         ques = obj['Question']
