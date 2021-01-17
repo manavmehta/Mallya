@@ -350,7 +350,6 @@ def updateCSV():
 
             writer.writerow([ques, ans])
     
-    # small_talk = pd.read_csv('/home/cauldronpumpkin/mallya/smalltalk.csv', sep=',')
     small_talk = pd.read_csv('./smalltalk.csv', sep=',')
 
 
@@ -389,8 +388,6 @@ def signal_handler(sig, frame):
     tl.stop()
     sys.exit(0)
 
-
-# small_talk = pd.read_csv('/home/cauldronpumpkin/mallya/smalltalk.csv', sep=',')
 small_talk = pd.read_csv('./smalltalk.csv', sep=',')
 
 small_talk_questions = list(small_talk['Question'])
