@@ -10,3 +10,4 @@ timeloop
 pymongo
 urllib3
 requests==2.20.0
+pyTelegramBotAPI
