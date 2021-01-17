@@ -339,7 +339,7 @@ def updateCSV():
     worksht2 = sht2.get_worksheet(0)
     small_dict = worksht2.get_all_records()
 
-    with open('/home/cauldronpumpkin/mallya/smalltalk.csv', mode='w', encoding='utf-8-sig', newline='') as smalltalk:
+    with open('./smalltalk.csv', mode='w', encoding='utf-8-sig', newline='') as smalltalk:
         writer = csv.writer(smalltalk, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         
         for obj in small_dict:
