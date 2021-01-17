@@ -9,4 +9,4 @@ tensorflow_hub
 timeloop
 pymongo
 urllib3
-requests==2.10.0
+requests==2.20.0
