@@ -42,7 +42,7 @@ for obj in qna_dict:
     ques_json = {'text': ques, 'answers': ans_list_id}
     ques_id = collection_questions.insert_one(ques_json)
 
-with open('/home/cauldronpumpkin/mallya/smalltalk.csv', mode='w', encoding='utf-8-sig', newline='') as smalltalk:
+with open('./smalltalk.csv', mode='w', encoding='utf-8-sig', newline='') as smalltalk:
     writer = csv.writer(smalltalk, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     writer.writerow(['Question', 'Answers'])
     for obj in small_dict:
