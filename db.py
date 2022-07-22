@@ -1,14 +1,68 @@
-#!/usr/bin/env python3
-
+import os
+import logging
+import dotenv
 from pymongo import MongoClient
 
-def initNewDB():
-    client = MongoClient('mongodb+srv://manav:e51e3a11@mallya.wwx7jhw.mongodb.net/MallyaDB', 27017)
-    db = client['MallyaDB']
-    return db
+logging.basicConfig(level=logging.INFO)
+dotenv.load_dotenv()
+DB_URL = os.getenv("MALLYA_DB_URL")
+DB_NAME = "MallyaDB"
 
-def getCollection(db, collection):
-    return db[collection]
-# Print the corresponding answer
+logger = logging.getLogger(__name__)
 
-instance = initNewDB()
+def init_db():
+    try:
+        client = MongoClient(DB_URL, 27017)
+        db = client[DB_NAME]
+        return db
+    except Exception as e:
+        logger.exception("Error initializing database")
+        raise e
+
+
+def get_collection(db, collection_name):
+    try:
+        return db[collection_name]
+    except Exception as e:
+        logger.exception(f"Error getting collection {collection_name}")
+        raise e
+
+def get_smalltalk():
+    try:
+        smalltalk = get_collection(DB, "smalltalk")
+        docs = smalltalk.find({})
+        questions, answers = [], []
+        for doc in docs:
+            questions.append(doc["question"])
+            answers.append(doc["answer"])
+        return questions, answers
+    except Exception as e:
+        logger.exception("Error getting smalltalk")
+        raise e
+
+
+def get_qna_lists():
+    try:
+        qna = get_collection(DB, "qna")
+        docs = qna.find({})
+        questions, answers = [], []
+        for doc in docs:
+            if "answers" not in doc.keys() or "question" not in doc.keys():
+                continue
+            for answer in doc["answers"]:
+                questions.append(doc["question"])
+                answers.append(answer)
+        return questions, answers
+    except Exception as e:
+        logger.exception("Error getting qna")
+        raise e
+
+
+def find_in_qna(key):
+    qna = get_collection(DB, "qna")
+    return qna.find_one({"question": key})["answers"]
+
+
+
+global DB
+DB = init_db()
