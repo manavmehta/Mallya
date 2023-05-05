@@ -3,9 +3,13 @@
 import threading
 import time
 from collections import OrderedDict
+import os
 import telebot
-from config import TOKEN
+import dotenv
 import utils
+
+dotenv.load_dotenv()
+TOKEN = os.getenv("TOKEN")
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -17,15 +21,13 @@ def index():
     Main function that is responsible to run the server.
     """
 
-    global updateid_dict
-
     last_update_id = None
 
     # Keep Listening to incoming requests
     while True:
         # The following conditional ensures fetching of latest 50 updates
         updates_list = None
-        if last_update_id == None:
+        if last_update_id is None:
             updates_list = bot.get_updates()
         else:
             updates_list = bot.get_updates(last_update_id, 100, 20)
@@ -35,14 +37,14 @@ def index():
 
             if update.update_id not in updateid_dict.keys():
                 updateid_dict[update.update_id] = time.time()
-                # print(update,'\n')
                 try:
                     new_thread = threading.Thread(
-                        target=utils.addressQuery, args=(update,)
+                        target=utils.address_query, args=(update,)
                     )
                     new_thread.start()
-                except:
+                except Exception as exception:
                     print("Unable to create a thread")
+                    raise exception
 
                 if len(updateid_dict.keys()) > 50:
                     updateid_dict.pop(list(updateid_dict.keys())[0])

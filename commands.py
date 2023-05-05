@@ -1,4 +1,8 @@
-commands = {'start': 'Hello there {}! I am a bot sent by the heavens to be yours. Type /help and know what I can do for you.',
+"""
+default commands for the bot
+"""
+commands = {
+    'start': 'Hello there {}! I am a bot sent by the heavens to be yours. Type /help and know what I can do for you.',
     'hi':'Hello there {}!',
     'hello':'Hello there {}!',
     'hey':'Hello there {}!',

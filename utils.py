@@ -3,94 +3,106 @@
 import random
 import urllib.parse as url
 import os
-from pprint import pprint
-from commands import commands
-import db
+import logging
 import tensorflow_hub as hub
 import numpy as np
 import requests
 import dotenv
-from config import BASE_TELEGRAM_URL
+from commands import commands
+import db
+
+logger = logging.getLogger(__name__)
 
 dotenv.load_dotenv()
+TOKEN = os.getenv("TOKEN")
 MODULE_URL = os.getenv("MODULE_URL")
+BASE_TELEGRAM_URL = os.getenv("BASE_TELEGRAM_URL").format(TOKEN)
 
 small_talk_questions, small_talk_answers = db.get_smalltalk()
 collection_questions, collection_answers = db.get_qna_lists()
 
 user_specific_answers = {}
 
-def getChatID(update):
+def get_chat_id(update):
     """
     Returns the chatID from the update.
     """
     return update.message.chat.id
 
-
-
-# create function that get getLastUpdate
-def getLastUpdate(req, offset=None):
+def get_last_update(req, offset: int = None):
     """
     Returns the latest update from the getUpdates bot API call.
+
+    Args:
+        req (str): The URL to make the API call to.
+        offset (int): The offset value to pass in the API call (default is None).
+
+    Returns:
+        List[Dict[str, Any]]: A list of the latest updates from the API call.
     """
-    updates_url = req + "getUpdates"
-    if offset != None:
-        updates_url += "?offset={}".format(offset)
-    response = requests.get(updates_url, timeout=300
-                            ).json()
-    result = response["result"]
-    return result[-5:]  # get last record message update
+    updates_url = f"{req}getUpdates"
+    if offset is not None:
+        updates_url += f"?offset={offset}"
+    try:
+        response = requests.get(updates_url, timeout=300).json()
+        result = response.get("result", [])
+        return result[-5:]
+    except (requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.RequestException) as exception:
+        logger.error("Error fetching updates: %s", exception)
+        return []
 
 
-def getUserID(update):
+def get_user_id(update):
     """
     Returns the userID from the update.
     """
     return update.message.from_user.id
 
 
-def addressQuery(update):
+def address_query(update):
+    """
+    This function handles different types of commands entered by the user.
+
+    Args:
+        update (telegram.Update): The incoming update object.
+
+    Returns:
+        None.
+    """
     
-
-    if getUserID(update) not in user_specific_answers:
-        sendMessage(
-            getChatID(update),
-            "Please use a valid command or type /help to know the commands I know. All valid commands start with a slash /. Cheers 🍻",
-        )
-
-    command, message = parseIncomingMessage(update)
+    command, message = parse_incoming_message(update)
 
     if command == "invalid":
-        sendMessage(
-            getChatID(update),
-            "Please use a valid command or type /help to know the commands. valid commands start with a /. Cheers 🍻",)
+        logger.info("Invalid command entered by the user")
+        send_message(
+            get_chat_id(update),
+            "Please use a valid command or type /help to know the commands. valid commands start with a /. Cheers 🍻",
+        )
         return
 
     elif command == "q":
-        answerQuery(message, update)
+        answer_query(message, update)
 
     elif command == "n":
-        """
-        n = next answer (for the same question)
-        """
-        user_specific_answers[getUserID(update)] = giveOneAnswer(
-            getChatID(update), user_specific_answers[getUserID(update)]
+        logger.info("User requested next answer")
+        user_specific_answers[get_user_id(update)] = give_one_answer(
+            get_chat_id(update), user_specific_answers[get_user_id(update)]
         )
 
-        if len(user_specific_answers[getUserID(update)]) <= 1:
-            sendMessage(
-                getChatID(update), "No more answers available for this question."
+        if len(user_specific_answers[get_user_id(update)]) <= 1:
+            send_message(
+                get_chat_id(update), "No more answers available for this question."
             )
 
     elif command == "u" or command == "d":
-        """
-        u = upvote current answer
-        d =  downvote current answer
-        """
-        voteOnAnswer(getChatID(update), command, update)
-        
+        logger.info("User voted on an answer")
+        vote_on_answer(get_chat_id(update), command, update)
+
     elif command == "smalltalk":
-        sendMessage(getChatID(update), addressSmalltalk(message))
+        logger.info("Smalltalk command entered by the user")
+        send_message(get_chat_id(update), address_smalltalk(message))
 
     else:
         first_name = update.message.from_user.first_name
@@ -98,23 +110,24 @@ def addressQuery(update):
             first_name = update.message.from_user.first_name
         else:
             first_name = update.edited_message.text.from_user.first_name
-        sendMessage(getChatID(update), commands[command].format(first_name))
+        logger.info("Valid command entered by the user")
+        send_message(get_chat_id(update), commands[command].format(first_name))
 
     return
 
 
-def parseIncomingMessage(update):
+def parse_incoming_message(update):
     """
     Returns the chatID from the update.
     """
 
-    incoming_message = getMessageText(update).lower()
+    incoming_message = get_message_text(update).lower()
     command, incoming_message_bifurcated = bifurcate_incoming(incoming_message)
-    pprint({"command": command, "incoming message": incoming_message})
+    logger.info("Parsed incoming message: command='%s', message='%s'", command, incoming_message)
     return command, incoming_message_bifurcated
 
 
-def getMessageText(update):
+def get_message_text(update):
     """
     Returns the actual text(payload) from the message/edited_message.
     These two are types of updates sent by teegram API.
@@ -127,127 +140,188 @@ def getMessageText(update):
         return update.edited_message.text
 
 
-
-def sendMessage(chat_id, message_text):
+def send_message(chat_id, message_text):
     """
     Sends the <message_text> to the corresponding <chat_id>
     """
     params = {"chat_id": chat_id, "text": message_text}
-    response = requests.post(BASE_TELEGRAM_URL + "sendMessage", timeout=10, data=params)
-    return response
+    try:
+        response = requests.post(BASE_TELEGRAM_URL + "sendMessage", timeout=10, data=params)
+        logger.info("Message sent successfully to chat ID %s: %s", chat_id, params["text"])
+        return response
+    except (requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.HTTPError) as exception:
+        logger.exception("Error sending message to chat ID %s: %s", chat_id, exception)
 
 
 # Bifurcate incoming_message_command into command and incoming message
-def bifurcate_incoming(incoming_message_command):
+def bifurcate_incoming(incoming_message_command: str):
     """
     Bifurcates the command and the message into two
     examples:
     /hi -> hi, None
     /q How is IIT Mandi? -> q, How is IIT Mandi
     """
-    command, incoming_message = None, None
-    if (
-        incoming_message_command[0] != "/"
-    ):  # Any message that does not start with a / is not a valid command
-        return "smalltalk", incoming_message_command  # decision tree
-    else:
-        i = 1
+    try:
+        command, incoming_message = None, None
+        if incoming_message_command[0] != "/":
+            return "smalltalk", incoming_message_command
+        
+        iterator = 1
         command = ""
-        while i < len(incoming_message_command) and incoming_message_command[i] != " ":
-            command += incoming_message_command[i]
-            i += 1
-        if i < len(incoming_message_command):
-            incoming_message = incoming_message_command[i + 1 :]
+        while iterator < len(incoming_message_command) and incoming_message_command[iterator] != " ":
+            command += incoming_message_command[iterator]
+            iterator += 1
+        if iterator < len(incoming_message_command):
+            incoming_message = incoming_message_command[iterator + 1 :]
 
-    if command in {"u", "d", "n", "q"} or command in commands:
+        if command not in {"u", "d", "n", "q"} and command not in commands:
+            return "invalid", None
+
         return command, incoming_message
-    else:
+    except Exception as exception:
+        logger.exception("Error bifurcating incoming message: %s", exception)
         return "invalid", None
 
-def voteOnAnswer(chatID, vote_type, update):
-    if getUserID(update) not in user_specific_answers:
-        sendMessage(chatID, "Your Vote could not be registered!")
+def vote_on_answer(chat_id: int, vote_type: str, update) -> None:
+    """
+    Registers the user's vote on a specific answer and updates the database accordingly.
+
+    Args:
+        chat_id (int): The chat ID where the message is being sent.
+        vote_type (str): The type of vote, which can be either "upvote" or "downvote".
+        update (Dict[str, Any]): The update object containing the incoming message.
+
+    Returns:
+        None
+    """
+    user_id = get_user_id(update)
+    if user_id not in user_specific_answers:
+        send_message(chat_id, "Your Vote could not be registered!")
         return
     
-    voted_answer = user_specific_answers[getUserID(update)][-1]
-    pprint(voted_answer)
+    voted_answer = user_specific_answers[user_id][-1]
 
-    user_specific_answers[getUserID(update)][-1] = voted_answer
+    user_specific_answers[user_id][-1] = voted_answer
     
-    db.update_vote_qna(vote_type, answer=voted_answer["answer"])
-    sendMessage(chatID, "Your Vote was registered!")
+    try:
+        db.update_vote_qna(vote_type, answer=voted_answer["answer"])
+        logger.info("Vote registered successfully.")
+        send_message(chat_id, "Your Vote was registered!")
+    except Exception as exception:
+        logger.exception("Error registering vote: %s", exception)
+        send_message(chat_id, "An error occurred while registering your vote. Please try again later.")
 
+def give_one_answer(chat_id: int, answers):
+    """
+    Sends one answer from the list of <answers> to the corresponding <chat_id>, and cycles the list so that
+    the next call to this function returns the next answer. Allows upvoting and downvoting of the answer using
+    the commands /u and /d respectively, and getting the next answer using the command /n.
 
-def giveOneAnswer(chatID, answers):
+    Args:
+        chat_id (int): The ID of the chat to send the message to.
+        answers (List[Dict]): The list of answers to choose from.
 
-    # swap first and last element of the array to cycle through the answers.
+    Returns:
+        List[Dict]: The updated list of answers.
+
+    """
+    if not answers:
+        raise ValueError("The list of answers is empty.")
+
     selected_answer = answers[0]
-    for i in range(0, len(answers) - 1):
+    for i in range(len(answers) - 1):
         answers[i] = answers[i + 1]
     answers[-1] = selected_answer
 
-    message = selected_answer["answer"] + "\n\n" + "___________________________________\n"
-    message += (
-        "\nUpvotes: {}, Downvotes: {}".format(selected_answer["upvotes"], selected_answer["upvotes"])
-        + "\n\n"
-        + "Type /u or /d for upvoting or downvoting this answer or /n for next answer."
-    )
+    message = f"{selected_answer['answer']}\n\n" \
+              "___________________________________\n" \
+              f"Upvotes: {selected_answer['upvotes']}, Downvotes: {selected_answer['downvotes']}\n\n" \
+              "/u to upvote, /d to downvote, or /n for next answer."
 
-    sendMessage(chatID, message)
+    send_message(chat_id, message)
 
     return answers
 
 
-def answerQuery(incoming_message, update):
-    features = model([incoming_message] + collection_questions)
-    answers = findAnswers(features)
-    pprint({"answers_received": answers})
-
-    if len(answers) == 0:
-        message = "This Question hasn't yet been answered. I will ask maintainers to answer it.\nTry a Google search till then:\n"
-        search_url = "https://www.google.com/search?q={}".format(
-            url.quote(incoming_message)
-        )
-        sendMessage(getChatID(update), message + search_url)
-    else:
-        answers = giveOneAnswer(getChatID(update), answers)
-
-    user_specific_answers[
-        getUserID(update)
-    ] = answers
-
-
-def addressSmalltalk(ques):
-    features = model([ques] + small_talk_questions)
-
-    corr = np.inner(features, features)
-
-    if max(corr[0][1:]) < 0.4 or corr[0][1:].argmax() >= len(small_talk_answers):
-        return "I didn't understand that :("
-    print(small_talk_answers[corr[0][1:].argmax()])
-    return random.choice(small_talk_answers[corr[0][1:].argmax()].split("&&"))
-
-
-def findAnswers(features):                  # check database questions for similarity and return suitable answer.
+def answer_query(incoming_message: str, update) -> None:
+    """
+    Answer a user's query by finding relevant answers and displaying them.
     
-    global collection_answers
+    Args:
+        incoming_message (str): The user's query.
+        update (Telegram update): The Telegram update object.
+    """
+    try:
+        features = model([incoming_message] + collection_questions)
+        answers = find_answers(features)
+        logger.info("Received answers for query: %s", incoming_message)
+        if len(answers) == 0:
+            message = "This question hasn't yet been answered. I will ask maintainers to answer it.\nTry a Google search till then:\n"
+            search_url = f"https://www.google.com/search?q={url.quote(incoming_message)}"
+            send_message(get_chat_id(update), message + search_url)
+        else:
+            answers = give_one_answer(get_chat_id(update), answers)
+        user_specific_answers[get_user_id(update)] = answers
+    except Exception as exception:
+        logger.exception("Error while answering query: %s", exception)
+        error_msg = "Oops! Something went wrong while answering your query. Please try again later."
+        send_message(get_chat_id(update), error_msg)
 
-    corr = np.inner(features, features)
-    
-    if max(corr[0][1:]) > 0.4:
-        relevant_question_index = corr[0][1:].argmax()
+def address_smalltalk(question: str) -> str:
+    """
+    Generates a small talk response based on the given question.
 
-        if relevant_question_index >= len(collection_questions):
-            return []
+    Args:
+        question (str): The user's question.
+
+    Returns:
+        str: The generated small talk response.
+    """
+    try:
+        features = model([question] + small_talk_questions)
+
+        corr = np.inner(features, features)
+
+        if max(corr[0][1:]) < 0.4 or corr[0][1:].argmax() >= len(small_talk_answers):
+            return "I didn't understand that :("
         
-        relevant_question = collection_questions[relevant_question_index]
-        pprint({"releveant_question": relevant_question})
-        answers = db.find_in_qna(relevant_question)
-        return answers
+        return random.choice(small_talk_answers[corr[0][1:].argmax()].split("&&"))
+    except Exception as exception:
+        logger.exception("Error while generating small talk response: %s", exception)
+        return "Oops! Something went wrong while generating a response. Please try again later."
+
+def find_answers(features):
+    """
+    Find answers from the database for a given set of features.
     
-    return []
+    Args:
+        features (List[float]): The features of the user's question.
+        
+    Returns:
+        List[Dict[str, Union[str, int]]]: The list of matching answers from the database.
+    """
+    try:
+        corr = np.inner(features, features)
+
+        if max(corr[0][1:]) > 0.4:
+            relevant_question_index = corr[0][1:].argmax()
+
+            if relevant_question_index >= len(collection_questions):
+                return []
+
+            relevant_question = collection_questions[relevant_question_index]
+            logger.info("Matching question found in database: %s", relevant_question)
+            answers = db.find_in_qna(relevant_question)
+            return answers
+
+        return []
+    except Exception as exception:
+        logger.exception("Error while finding answers for query: %s", exception)
+        return []
 
 
-pprint("Loading NLP Model, it might take a few minutes for the first time")
+logger.info("Loading NLP Model, it might take a few minutes for the first time")
 model = hub.load(MODULE_URL)
-pprint("\nNLP model loaded successfully\n")
+logger.info("NLP model loaded successfully")
