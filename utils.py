@@ -23,11 +23,13 @@ collection_questions, collection_answers = db.get_qna_lists()
 
 user_specific_answers = {}
 
+
 def get_chat_id(update):
     """
     Returns the chatID from the update.
     """
     return update.message.chat.id
+
 
 def get_last_update(req, offset: int = None):
     """
@@ -47,9 +49,11 @@ def get_last_update(req, offset: int = None):
         response = requests.get(updates_url, timeout=300).json()
         result = response.get("result", [])
         return result[-5:]
-    except (requests.exceptions.Timeout,
-            requests.exceptions.ConnectionError,
-            requests.exceptions.RequestException) as exception:
+    except (
+        requests.exceptions.Timeout,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.RequestException,
+    ) as exception:
         logger.error("Error fetching updates: %s", exception)
         return []
 
@@ -71,7 +75,7 @@ def address_query(update):
     Returns:
         None.
     """
-    
+
     command, message = parse_incoming_message(update)
 
     if command == "invalid":
@@ -123,7 +127,9 @@ def parse_incoming_message(update):
 
     incoming_message = get_message_text(update).lower()
     command, incoming_message_bifurcated = bifurcate_incoming(incoming_message)
-    logger.info("Parsed incoming message: command='%s', message='%s'", command, incoming_message)
+    logger.info(
+        "Parsed incoming message: command='%s', message='%s'", command, incoming_message
+    )
     return command, incoming_message_bifurcated
 
 
@@ -146,12 +152,18 @@ def send_message(chat_id, message_text):
     """
     params = {"chat_id": chat_id, "text": message_text}
     try:
-        response = requests.post(BASE_TELEGRAM_URL + "sendMessage", timeout=10, data=params)
-        logger.info("Message sent successfully to chat ID %s: %s", chat_id, params["text"])
+        response = requests.post(
+            BASE_TELEGRAM_URL + "sendMessage", timeout=10, data=params
+        )
+        logger.info(
+            "Message sent successfully to chat ID %s: %s", chat_id, params["text"]
+        )
         return response
-    except (requests.exceptions.Timeout,
-            requests.exceptions.ConnectionError,
-            requests.exceptions.HTTPError) as exception:
+    except (
+        requests.exceptions.Timeout,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.HTTPError,
+    ) as exception:
         logger.exception("Error sending message to chat ID %s: %s", chat_id, exception)
 
 
@@ -167,10 +179,13 @@ def bifurcate_incoming(incoming_message_command: str):
         command, incoming_message = None, None
         if incoming_message_command[0] != "/":
             return "smalltalk", incoming_message_command
-        
+
         iterator = 1
         command = ""
-        while iterator < len(incoming_message_command) and incoming_message_command[iterator] != " ":
+        while (
+            iterator < len(incoming_message_command)
+            and incoming_message_command[iterator] != " "
+        ):
             command += incoming_message_command[iterator]
             iterator += 1
         if iterator < len(incoming_message_command):
@@ -183,6 +198,7 @@ def bifurcate_incoming(incoming_message_command: str):
     except Exception as exception:
         logger.exception("Error bifurcating incoming message: %s", exception)
         return "invalid", None
+
 
 def vote_on_answer(chat_id: int, vote_type: str, update) -> None:
     """
@@ -200,18 +216,22 @@ def vote_on_answer(chat_id: int, vote_type: str, update) -> None:
     if user_id not in user_specific_answers:
         send_message(chat_id, "Your Vote could not be registered!")
         return
-    
+
     voted_answer = user_specific_answers[user_id][-1]
 
     user_specific_answers[user_id][-1] = voted_answer
-    
+
     try:
         db.update_vote_qna(vote_type, answer=voted_answer["answer"])
         logger.info("Vote registered successfully.")
         send_message(chat_id, "Your Vote was registered!")
     except Exception as exception:
         logger.exception("Error registering vote: %s", exception)
-        send_message(chat_id, "An error occurred while registering your vote. Please try again later.")
+        send_message(
+            chat_id,
+            "An error occurred while registering your vote. Please try again later.",
+        )
+
 
 def give_one_answer(chat_id: int, answers):
     """
@@ -235,10 +255,12 @@ def give_one_answer(chat_id: int, answers):
         answers[i] = answers[i + 1]
     answers[-1] = selected_answer
 
-    message = f"{selected_answer['answer']}\n\n" \
-              "___________________________________\n" \
-              f"Upvotes: {selected_answer['upvotes']}, Downvotes: {selected_answer['downvotes']}\n\n" \
-              "/u to upvote, /d to downvote, or /n for next answer."
+    message = (
+        f"{selected_answer['answer']}\n\n"
+        "___________________________________\n"
+        f"Upvotes: {selected_answer['upvotes']}, Downvotes: {selected_answer['downvotes']}\n\n"
+        "/u to upvote, /d to downvote, or /n for next answer."
+    )
 
     send_message(chat_id, message)
 
@@ -248,7 +270,7 @@ def give_one_answer(chat_id: int, answers):
 def answer_query(incoming_message: str, update) -> None:
     """
     Answer a user's query by finding relevant answers and displaying them.
-    
+
     Args:
         incoming_message (str): The user's query.
         update (Telegram update): The Telegram update object.
@@ -259,7 +281,9 @@ def answer_query(incoming_message: str, update) -> None:
         logger.info("Received answers for query: %s", incoming_message)
         if len(answers) == 0:
             message = "This question hasn't yet been answered. I will ask maintainers to answer it.\nTry a Google search till then:\n"
-            search_url = f"https://www.google.com/search?q={url.quote(incoming_message)}"
+            search_url = (
+                f"https://www.google.com/search?q={url.quote(incoming_message)}"
+            )
             send_message(get_chat_id(update), message + search_url)
         else:
             answers = give_one_answer(get_chat_id(update), answers)
@@ -268,6 +292,7 @@ def answer_query(incoming_message: str, update) -> None:
         logger.exception("Error while answering query: %s", exception)
         error_msg = "Oops! Something went wrong while answering your query. Please try again later."
         send_message(get_chat_id(update), error_msg)
+
 
 def address_smalltalk(question: str) -> str:
     """
@@ -286,19 +311,20 @@ def address_smalltalk(question: str) -> str:
 
         if max(corr[0][1:]) < 0.4 or corr[0][1:].argmax() >= len(small_talk_answers):
             return "I didn't understand that :("
-        
+
         return random.choice(small_talk_answers[corr[0][1:].argmax()].split("&&"))
     except Exception as exception:
         logger.exception("Error while generating small talk response: %s", exception)
         return "Oops! Something went wrong while generating a response. Please try again later."
 
+
 def find_answers(features):
     """
     Find answers from the database for a given set of features.
-    
+
     Args:
         features (List[float]): The features of the user's question.
-        
+
     Returns:
         List[Dict[str, Union[str, int]]]: The list of matching answers from the database.
     """
