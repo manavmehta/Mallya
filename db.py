@@ -1,3 +1,7 @@
+"""
+program to setup db
+"""
+
 import os
 import logging
 import dotenv
@@ -10,6 +14,7 @@ DB_URL = os.getenv("MALLYA_DB_URL")
 DB_NAME = "MallyaDB"
 
 logger = logging.getLogger(__name__)
+
 
 def init_db():
     """
@@ -112,12 +117,17 @@ def update_vote_qna(vote_type: str, answer: str):
     """
     try:
         qna = get_collection(DB, "qna")
-        where_clause = {'answers.answer': answer}
-        update_clause = {"$inc": {"answers.$.upvotes": 1}} if vote_type == "u" else {"$inc": {"answers.$.downvotes": 1}}
+        where_clause = {"answers.answer": answer}
+        update_clause = (
+            {"$inc": {"answers.$.upvotes": 1}}
+            if vote_type == "u"
+            else {"$inc": {"answers.$.downvotes": 1}}
+        )
         qna.update_one(where_clause, update_clause)
     except Exception as exception:
         logger.exception("Error updating vote count for answer: %s", answer)
         raise exception
+
 
 global DB
 DB = init_db()

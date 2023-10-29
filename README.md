@@ -17,6 +17,7 @@ pip install -r requirements.txt
 ```python
 python app.py
 ```
+
 # Instructions to add Mallya to your Telegram
 * Add Mallya to your Telegram by clicking [this link](https://t.me/MallyaBot)
 * Chat with the King of good times
